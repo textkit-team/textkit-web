@@ -29,6 +29,10 @@ export default function EmojiCategoryPage({ params }: { params: Params }) {
   const meta = CATEGORY_META[cat];
   const emojis = EMOJIS[cat];
 
+  console.log("category param:", params.category);
+  console.log("meta keys:", Object.keys(CATEGORY_META));
+  console.log("emoji keys:", Object.keys(EMOJIS));
+
   if (!meta || !emojis) {
     return (
       <main style={{ maxWidth: 900, margin: "0 auto", padding: "56px 20px" }}>
