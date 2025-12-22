@@ -1,16 +1,9 @@
+import { ALL_CATEGORIES, CATEGORY_META } from "@/lib/emoji-data";
+
 export const metadata = {
   title: "이모지 모음 | TextKit",
   description: "자주 쓰는 이모지를 카테고리별로 보고 클릭 한 번으로 복사하세요.",
 };
-
-const CATEGORIES = [
-  { slug: "smileys", title: "😀 표정/감정", desc: "웃음, 감정, 사람 표정" },
-  { slug: "hearts", title: "❤️ 하트", desc: "하트, 사랑, 감정 표현" },
-  { slug: "hands", title: "🤝 손/제스처", desc: "손 모양, 제스처, 악수" },
-  { slug: "symbols", title: "✅ 기호", desc: "체크, 경고, 화살표, 기타 기호" },
-  { slug: "animals", title: "🐶 동물", desc: "강아지, 고양이 등 동물 이모지" },
-  { slug: "food", title: "🍔 음식", desc: "음식, 음료, 디저트" },
-];
 
 export default function EmojiHubPage() {
   return (
@@ -28,26 +21,45 @@ export default function EmojiHubPage() {
       </header>
 
       <section style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-        {CATEGORIES.map((c) => (
-          <a
-            key={c.slug}
-            href={`/emoji/${c.slug}`}
-            style={{
-              display: "block",
-              padding: 18,
-              border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 14,
-              textDecoration: "none",
-            }}
-          >
-            <div style={{ fontSize: 18, fontWeight: 700 }}>{c.title}</div>
-            <div style={{ marginTop: 6, opacity: 0.8 }}>{c.desc}</div>
-          </a>
-        ))}
+        {ALL_CATEGORIES.map((slug) => {
+          const meta = CATEGORY_META[slug];
+          return (
+            <a
+              key={slug}
+              href={`/emoji/${slug}`}
+              style={{
+                display: "block",
+                padding: 18,
+                border: "1px solid rgba(255,255,255,0.12)",
+                borderRadius: 14,
+                textDecoration: "none",
+              }}
+            >
+              <div style={{ fontSize: 18, fontWeight: 700 }}>{meta.title}</div>
+              <div style={{ marginTop: 6, opacity: 0.8 }}>{meta.description}</div>
+            </a>
+          );
+        })}
       </section>
 
-      <footer style={{ marginTop: 36, opacity: 0.7, fontSize: 14 }}>
-        Tip: 모바일에서는 길게 누르지 말고, “클릭 → 복사” 방식으로 제공할 예정입니다.
+      <div style={{ marginTop: 14 }}>
+        <a
+          href="/emoji/copy"
+          style={{
+            display: "inline-block",
+            padding: "10px 12px",
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,0.16)",
+            textDecoration: "none",
+            opacity: 0.9,
+          }}
+        >
+          📋 전체 이모지 빠른 복사
+        </a>
+      </div>
+
+      <footer style={{ marginTop: 28, opacity: 0.7, fontSize: 14 }}>
+        카테고리는 계속 추가됩니다.
       </footer>
     </main>
   );
