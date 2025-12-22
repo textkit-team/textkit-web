@@ -12,26 +12,25 @@ export function generateStaticParams() {
   return ALL_CATEGORIES.map((c) => ({ category: c }));
 }
 
-export function generateMetadata({ params }: { params: Params }) {
-  const cat = params.category as EmojiCategory;
+export async function generateMetadata({ params }: { params: any }) {
+  const p = await Promise.resolve(params);
+  const cat = p?.category as EmojiCategory;
+
   const meta = CATEGORY_META[cat];
-  if (!meta) {
-    return { title: "이모지 | TextKit" };
-  }
+  if (!meta) return { title: "이모지 | TextKit" };
+
   return {
     title: `${meta.title} | TextKit`,
     description: `${meta.description} — 클릭 한 번으로 복사하세요.`,
   };
 }
 
-export default function EmojiCategoryPage({ params }: { params: Params }) {
-  const cat = params.category as EmojiCategory;
+export default async function EmojiCategoryPage({ params }: { params: any }) {
+  const p = await Promise.resolve(params);
+  const cat = p?.category as EmojiCategory;
+
   const meta = CATEGORY_META[cat];
   const emojis = EMOJIS[cat];
-
-  console.log("category param:", params.category);
-  console.log("meta keys:", Object.keys(CATEGORY_META));
-  console.log("emoji keys:", Object.keys(EMOJIS));
 
   if (!meta || !emojis) {
     return (
