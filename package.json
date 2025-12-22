@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "gen:emoji": "node scripts/generate-emoji-data.mjs --version 16.0",
+    "build": "next build"
   },
   "dependencies": {
     "next": "16.1.0",
