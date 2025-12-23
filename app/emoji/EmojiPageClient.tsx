@@ -11,22 +11,50 @@ import {
   type EmojiCategory,
 } from "@/lib/emoji-data";
 
+const CATEGORY_ORDER: EmojiCategory[] = [
+  "smileys-emotion",
+  "people-body",
+  "animals-nature",
+  "food-drink",
+  "activities",
+  "travel-places",
+  "objects",
+  "symbols",
+  "flags",
+];
+
 export default function EmojiPageClient() {
   const [q, setQ] = useState("");
-  const [active, setActive] = useState<string>(ALL_CATEGORIES[0] ?? "");
+  const [active, setActive] = useState<string>("");
   const [showTop, setShowTop] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const isSearching = q.trim().length > 0;
 
-  const categories = useMemo(() => {
-    return ALL_CATEGORIES.map((c) => ({
-      id: c,
-      title: CATEGORY_META[c as EmojiCategory]?.title ?? c,
-      emojis: EMOJIS[c as EmojiCategory] ?? [],
-    }));
+  /* ---------- 모바일 판별 ---------- */
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
   }, []);
 
-  // 검색 결과: 카테고리 분리 없이 단일 리스트(빠름)
+  /* ---------- 카테고리 정렬 ---------- */
+  const categories = useMemo(() => {
+    const order =
+      CATEGORY_ORDER.length > 0 ? CATEGORY_ORDER : ALL_CATEGORIES;
+
+    return order
+      .filter((c) => EMOJIS[c]?.length)
+      .map((c) => ({
+        id: c,
+        title: CATEGORY_META[c]?.title ?? c,
+        emojis: EMOJIS[c] ?? [],
+      }));
+  }, []);
+
+  /* ---------- 검색 결과 (단일 그리드) ---------- */
   const searchResult = useMemo(() => {
     const qq = q.trim().toLowerCase();
     if (!qq) return [];
@@ -39,9 +67,9 @@ export default function EmojiPageClient() {
       .map(([emoji]) => emoji);
   }, [q]);
 
-  // 스크롤 시 현재 섹션 하이라이트
+  /* ---------- 스크롤 위치에 따른 active 카테고리 ---------- */
   useEffect(() => {
-    if (isSearching) return;
+    if (isSearching || isMobile) return;
 
     const els = categories
       .map((c) => document.getElementById(`sec-${c.id}`))
@@ -55,18 +83,19 @@ export default function EmojiPageClient() {
           .filter((e) => e.isIntersecting)
           .sort(
             (a, b) =>
-              (a.boundingClientRect.top ?? 0) - (b.boundingClientRect.top ?? 0)
+              (a.boundingClientRect.top ?? 0) -
+              (b.boundingClientRect.top ?? 0)
           );
         if (v[0]) setActive(v[0].target.id.replace("sec-", ""));
       },
-      { rootMargin: "-90px 0px -70% 0px", threshold: 0.1 }
+      { rootMargin: "-100px 0px -70% 0px", threshold: 0.1 }
     );
 
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
-  }, [categories, isSearching]);
+  }, [categories, isSearching, isMobile]);
 
-  // Top 버튼 표시 제어
+  /* ---------- Top 버튼 ---------- */
   useEffect(() => {
     function onScroll() {
       setShowTop(window.scrollY > 420);
@@ -90,10 +119,6 @@ export default function EmojiPageClient() {
         Emoji
       </h1>
 
-      <p style={{ marginTop: 0, opacity: 0.75, marginBottom: 16, lineHeight: 1.6 }}>
-        검색하고 클릭해서 바로 복사하세요.
-      </p>
-
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
@@ -105,11 +130,11 @@ export default function EmojiPageClient() {
           border: "1px solid rgba(255,255,255,0.18)",
           background: "rgba(0,0,0,0.2)",
           color: "inherit",
-          marginBottom: 14,
-          outline: "none",
+          marginBottom: 16,
         }}
       />
 
+      {/* 검색 중: 단일 결과 */}
       {isSearching ? (
         <>
           <div style={{ marginBottom: 10, fontSize: 14, opacity: 0.75 }}>
@@ -119,105 +144,79 @@ export default function EmojiPageClient() {
         </>
       ) : (
         <>
-          {/* 카테고리 선택 영역: 눈에 잘 띄게 “카드”로 강조 + 여러 줄 표시 */}
-          <div
-            style={{
-              position: "sticky",
-              top: 0,
-              zIndex: 10,
-              marginBottom: 18,
-              padding: 12,
-              borderRadius: 16,
-              border: "1px solid rgba(255,255,255,0.18)",
-              background: "rgba(0,0,0,0.55)",
-              backdropFilter: "blur(10px)",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
-            }}
-          >
+          {/* 데스크톱 전용 카테고리 선택 */}
+          {!isMobile && (
             <div
               style={{
-                display: "flex",
-                alignItems: "baseline",
-                justifyContent: "space-between",
-                gap: 12,
-                marginBottom: 10,
+                position: "sticky",
+                top: 0,
+                zIndex: 10,
+                marginBottom: 18,
+                padding: 14,
+                borderRadius: 16,
+                border: "1px solid rgba(255,255,255,0.2)",
+                background: "rgba(0,0,0,0.55)",
+                backdropFilter: "blur(10px)",
               }}
             >
-              <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: -0.2 }}>
-                카테고리 선택
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 800,
+                  marginBottom: 10,
+                }}
+              >
+                카테고리
               </div>
-              <div style={{ fontSize: 12, opacity: 0.7 }}>
-                탭을 눌러 이동
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  flexWrap: "wrap",
+                }}
+              >
+                {categories.map((c) => {
+                  const isActive = active === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => jump(c.id)}
+                      style={{
+                        padding: "10px 14px",
+                        borderRadius: 999,
+                        border: isActive
+                          ? "1px solid rgba(255,255,255,0.45)"
+                          : "1px solid rgba(255,255,255,0.2)",
+                        background: isActive
+                          ? "rgba(255,255,255,0.2)"
+                          : "rgba(255,255,255,0.06)",
+                        fontWeight: isActive ? 800 : 600,
+                        fontSize: 13,
+                        cursor: "pointer",
+                      }}
+                    >
+                        {c.title}
+                    </button>
+                  );
+                })}
               </div>
             </div>
+          )}
 
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                flexWrap: "wrap", // ✅ 여러 줄 허용 (가로 스크롤 없음)
-                justifyContent: "flex-start",
-              }}
-            >
-              {categories.map((c) => {
-                const isActive = active === c.id;
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => jump(c.id)}
-                    style={{
-                      padding: "10px 12px", // ✅ 더 큼
-                      borderRadius: 999,
-                      border: isActive
-                        ? "1px solid rgba(255,255,255,0.42)"
-                        : "1px solid rgba(255,255,255,0.18)",
-                      background: isActive
-                        ? "rgba(255,255,255,0.18)"
-                        : "rgba(255,255,255,0.06)",
-                      color: "inherit",
-                      cursor: "pointer",
-                      fontSize: 13,
-                      fontWeight: isActive ? 800 : 650,
-                      letterSpacing: -0.1,
-                      boxShadow: isActive
-                        ? "0 8px 18px rgba(0,0,0,0.25)"
-                        : "none",
-                      transform: isActive ? "translateY(-1px)" : "translateY(0)",
-                      transition:
-                        "background 120ms ease, border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease",
-                    }}
-                    aria-current={isActive ? "true" : undefined}
-                  >
-                    {c.title}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 섹션들: Lazy render */}
+          {/* 카테고리 섹션 */}
           {categories.map((c) => (
             <section
               key={c.id}
               id={`sec-${c.id}`}
-              style={{ marginBottom: 28, scrollMarginTop: 100 }}
+              style={{ marginBottom: 28, scrollMarginTop: 120 }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "baseline",
-                  gap: 10,
-                  marginBottom: 10,
-                }}
-              >
-                <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>
-                  {c.title}
-                </h2>
-                <span style={{ fontSize: 13, opacity: 0.65 }}>
-                  {c.emojis.length}개
+              <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 10 }}>
+                {c.title}
+                <span style={{ fontSize: 13, opacity: 0.6, marginLeft: 6 }}>
+                  {c.emojis.length}
                 </span>
-              </div>
+              </h2>
 
               <LazySection>
                 <EmojiGrid emojis={c.emojis} />
@@ -227,7 +226,7 @@ export default function EmojiPageClient() {
         </>
       )}
 
-      {/* 우측 하단 Top 버튼 */}
+      {/* Top 버튼 */}
       {showTop && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
@@ -236,17 +235,15 @@ export default function EmojiPageClient() {
             position: "fixed",
             right: 16,
             bottom: 16,
-            zIndex: 60,
             width: 46,
             height: 46,
             borderRadius: 999,
-            border: "1px solid rgba(255,255,255,0.22)",
+            border: "1px solid rgba(255,255,255,0.25)",
             background: "rgba(0,0,0,0.75)",
             color: "white",
-            cursor: "pointer",
-            boxShadow: "0 10px 22px rgba(0,0,0,0.35)",
-            fontSize: 16,
             fontWeight: 900,
+            cursor: "pointer",
+            zIndex: 60,
           }}
         >
           ↑
