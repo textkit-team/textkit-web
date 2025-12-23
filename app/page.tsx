@@ -1,50 +1,38 @@
-export default function Home() {
+import Link from "next/link";
+
+export default function HomePage() {
   return (
-    <main style={{ maxWidth: 860, margin: "0 auto", padding: "64px 20px" }}>
-      <header style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 42, margin: 0, letterSpacing: -0.5 }}>TextKit</h1>
-        <p style={{ fontSize: 18, lineHeight: 1.6, marginTop: 12, opacity: 0.85 }}>
-          Emoji · Text Tools · Copy &amp; Paste
-        </p>
-      </header>
+    <main className="mx-auto max-w-4xl px-6 py-16">
+      <h1 className="mb-10 text-3xl font-bold">
+        TextKit
+      </h1>
 
-      <section style={{ display: "grid", gap: 12 }}>
-        <a
+      <div className="grid gap-6 sm:grid-cols-2">
+        {/* Emoji */}
+        <Link
           href="/emoji"
-          style={{
-            display: "block",
-            padding: 18,
-            border: "1px solid rgba(255,255,255,0.12)",
-            borderRadius: 12,
-            textDecoration: "none",
-          }}
+          className="rounded-2xl border p-6 transition hover:shadow-md"
         >
-          <strong style={{ fontSize: 18 }}>😄 이모지 모음</strong>
-          <div style={{ marginTop: 6, opacity: 0.8 }}>
-            자주 쓰는 이모지를 카테고리별로 보고 바로 복사하세요.
-          </div>
-        </a>
+          <h2 className="text-xl font-semibold">😀 Emoji</h2>
+          <p className="mt-2 text-sm opacity-70">
+            이모지 검색 & 복사
+          </p>
+          <span className="mt-4 inline-block text-sm font-medium">
+            바로가기 →
+          </span>
+        </Link>
 
-        <a
-          href="/emoji/copy"
-          style={{
-            display: "block",
-            padding: 18,
-            border: "1px solid rgba(255,255,255,0.12)",
-            borderRadius: 12,
-            textDecoration: "none",
-          }}
-        >
-          <strong style={{ fontSize: 18 }}>📋 빠른 복사</strong>
-          <div style={{ marginTop: 6, opacity: 0.8 }}>
-            클릭 한 번으로 복사되는 리스트를 제공합니다.
-          </div>
-        </a>
-      </section>
-
-      <footer style={{ marginTop: 48, opacity: 0.7, fontSize: 14 }}>
-        © {new Date().getFullYear()} TextKit
-      </footer>
+        {/* Coming Soon */}
+        <div className="rounded-2xl border p-6 opacity-60">
+          <h2 className="text-xl font-semibold">🚧 New Service</h2>
+          <p className="mt-2 text-sm">
+            신규 서비스 예정
+          </p>
+          <span className="mt-4 inline-block text-sm">
+            Coming Soon
+          </span>
+        </div>
+      </div>
     </main>
   );
 }
