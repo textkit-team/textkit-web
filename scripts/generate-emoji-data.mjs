@@ -1,23 +1,33 @@
 #!/usr/bin/env node
 /**
  * Generate /lib/emoji-data.ts from Unicode emoji-test.txt
+ * and (optionally) CLDR Korean emoji annotations.
+ *
+ * Why:
+ * - emoji-test.txt provides canonical English names + grouping.
+ * - CLDR annotations provide localized Korean names + keywords.
  *
  * Usage:
  *   node scripts/generate-emoji-data.mjs
  *   node scripts/generate-emoji-data.mjs --version 16.0
  *   node scripts/generate-emoji-data.mjs --url https://unicode.org/Public/emoji/16.0/emoji-test.txt
+ *   node scripts/generate-emoji-data.mjs --input ./emoji-test.txt
  *   node scripts/generate-emoji-data.mjs --out lib/emoji-data.ts
  *
+ * Korean annotations:
+ *   node scripts/generate-emoji-data.mjs --cldr-ko https://raw.githubusercontent.com/unicode-org/cldr/main/common/annotations/ko.xml \
+ *     --cldr-ko-derived https://raw.githubusercontent.com/unicode-org/cldr/main/common/annotationsDerived/ko.xml
+ *
  * Notes:
- * - Parses only "fully-qualified" by default (recommended to avoid ambiguous variants).
- * - Groups become categories. You can later add your own Korean titles/descriptions.
+ * - Parses only "fully-qualified" by default (recommended).
+ * - The generated EMOJI_META includes pre-computed `search` string for fast substring search.
  */
 
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-// Unicode group name -> Korean title/description mapping
+// Unicode group name -> Korean title/description mapping (UI only)
 const KO_GROUP_META = {
   "Smileys & Emotion": {
     title: "표정 · 감정",
@@ -65,18 +75,32 @@ function argValue(flag) {
 
 const OUT_PATH = argValue("--out") ?? "lib/emoji-data.ts";
 const VERSION = argValue("--version"); // e.g. "16.0"
+const INPUT_PATH = argValue("--input");
 const URL =
   argValue("--url") ??
   (VERSION
     ? `https://unicode.org/Public/emoji/${VERSION}/emoji-test.txt`
     : // "latest" isn't a stable directory name; pick a default you can update.
-      // You can always pass --version when Unicode updates.
       `https://unicode.org/Public/emoji/16.0/emoji-test.txt`);
 
-const ONLY_FULLY_QUALIFIED = !process.argv.includes("--include-non-fully-qualified");
+// CLDR Korean annotations (optional)
+const CLDR_KO_URL =
+  argValue("--cldr-ko") ??
+  "https://raw.githubusercontent.com/unicode-org/cldr/main/common/annotations/ko.xml";
+const CLDR_KO_DERIVED_URL =
+  argValue("--cldr-ko-derived") ??
+  "https://raw.githubusercontent.com/unicode-org/cldr/main/common/annotationsDerived/ko.xml";
+const CLDR_KO_INPUT = argValue("--cldr-ko-input");
+const CLDR_KO_DERIVED_INPUT = argValue("--cldr-ko-derived-input");
+
+const INCLUDE_KO = !process.argv.includes("--no-ko");
+
+const ONLY_FULLY_QUALIFIED = !process.argv.includes(
+  "--include-non-fully-qualified"
+);
 
 function slugifyGroupName(name) {
-  // e.g. "Smileys & Emotion" -> "smileys-emotion"
+  // e.g. "Smileys & Emotion" -> "smileys-and-emotion"
   return name
     .toLowerCase()
     .replace(/&/g, "and")
@@ -98,17 +122,74 @@ function toEmojiFromCodepoints(hexSeq) {
 async function fetchText(url) {
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Failed to fetch emoji-test.txt (${res.status}): ${url}`);
+    throw new Error(`Failed to fetch (${res.status}): ${url}`);
   }
   return await res.text();
+}
+
+function readTextFile(p) {
+  return fs.readFileSync(path.resolve(process.cwd(), p), "utf8");
+}
+
+function decodeXmlEntities(s) {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
+      String.fromCodePoint(parseInt(hex, 16))
+    )
+    .replace(/&#([0-9]+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)));
+}
+
+/**
+ * Parse CLDR annotations XML:
+ * - type="tts" is the primary name
+ * - without type is keywords separated by " | "
+ */
+function parseCldrAnnotationsXml(xml) {
+  const out = new Map();
+
+  // The CLDR XML can be 1 line; do a global regex.
+  const re = /<annotation\s+([^>]*?)>([\s\S]*?)<\/annotation>/g;
+  let m;
+  while ((m = re.exec(xml))) {
+    const attrs = m[1] ?? "";
+    const text = decodeXmlEntities((m[2] ?? "").trim());
+    const cpMatch = attrs.match(/\bcp="([^"]+)"/);
+    if (!cpMatch) continue;
+    const emoji = cpMatch[1];
+    const typeMatch = attrs.match(/\btype="([^"]+)"/);
+    const type = typeMatch ? typeMatch[1] : null;
+
+    const cur = out.get(emoji) ?? { tts: null, keywords: [] };
+    if (type === "tts") {
+      cur.tts = text;
+    } else {
+      // keywords are delimited by | in CLDR
+      const parts = text
+        .split(/\s*\|\s*/)
+        .map((x) => x.trim())
+        .filter(Boolean);
+      cur.keywords.push(...parts);
+    }
+    out.set(emoji, cur);
+  }
+
+  // de-dup keywords
+  for (const [k, v] of out.entries()) {
+    v.keywords = Array.from(new Set(v.keywords));
+    out.set(k, v);
+  }
+  return out;
 }
 
 function parseEmojiTest(txt) {
   const lines = txt.split(/\r?\n/);
 
-  /** @type {string|null} */
   let currentGroup = null;
-  /** @type {string|null} */
   let currentSubgroup = null;
 
   /** @type {Map<string, {group: string, subgroup: string, emoji: string, name: string, status: string}>} */
@@ -118,47 +199,33 @@ function parseEmojiTest(txt) {
     const trimmed = line.trim();
     if (!trimmed) continue;
 
-    // Headers
-    // "# group: Smileys & Emotion"
     if (trimmed.startsWith("# group:")) {
       currentGroup = trimmed.replace("# group:", "").trim();
       currentSubgroup = null;
       continue;
     }
-    // "# subgroup: face-smiling"
     if (trimmed.startsWith("# subgroup:")) {
       currentSubgroup = trimmed.replace("# subgroup:", "").trim();
       continue;
     }
 
-    // Data lines look like:
-    // "1F600                                      ; fully-qualified     # 😀 E1.0 grinning face"
-    // "1F469 200D 1F4BB                            ; fully-qualified     # 👩‍💻 E4.0 woman technologist"
-    // We capture the left codepoints, status, and the name after version.
     const m = trimmed.match(/^([0-9A-F ]+)\s*;\s*([a-z-]+)\s*#\s*(.+)$/i);
     if (!m) continue;
+    if (!currentGroup) continue;
 
-    if (!currentGroup) continue; // should not happen but be safe
     const hexSeq = m[1].trim();
     const status = m[2].trim().toLowerCase();
     const rhs = m[3].trim();
-
     if (ONLY_FULLY_QUALIFIED && status !== "fully-qualified") continue;
 
-    // rhs format: "😀 E1.0 grinning face"
-    // There can be multiple spaces; emoji itself is first token (may include ZWJ etc, but in rhs it's rendered)
-    // Safer to compute emoji from codepoints instead of taking first token.
     const emoji = toEmojiFromCodepoints(hexSeq);
 
-    // Extract name after the version token like "E15.1"
-    // If not found, keep the whole rhs as name.
+    // rhs format: "😀 E1.0 grinning face"
     let name = rhs;
     const vm = rhs.match(/\bE\d+(?:\.\d+)?\b\s+(.+)$/);
     if (vm) name = vm[1].trim();
 
     const subgroup = currentSubgroup ?? "unknown";
-
-    // Deduplicate by emoji (keep the first occurrence)
     if (!byEmoji.has(emoji)) {
       byEmoji.set(emoji, { group: currentGroup, subgroup, emoji, name, status });
     }
@@ -167,11 +234,23 @@ function parseEmojiTest(txt) {
   return Array.from(byEmoji.values());
 }
 
-function buildTsFile(parsed, sourceUrl) {
+function tokenizeEnglish(s) {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function uniq(arr) {
+  return Array.from(new Set(arr));
+}
+
+function buildTsFile(parsed, sourceUrl, koMap) {
   // Group -> emojis
   /** @type {Map<string, {slug: string, group: string, emojis: string[]}>} */
   const groupMap = new Map();
-
   for (const item of parsed) {
     const group = item.group;
     const slug = slugifyGroupName(group);
@@ -184,45 +263,83 @@ function buildTsFile(parsed, sourceUrl) {
     a.slug.localeCompare(b.slug)
   );
 
-  // To keep output stable, sort emojis within group by codepoint string order
   for (const g of groups) {
-    g.emojis = Array.from(new Set(g.emojis));
-    // stable-ish sort by UTF-16 string; good enough for deterministic output
+    g.emojis = uniq(g.emojis);
     g.emojis.sort((a, b) => a.localeCompare(b));
   }
 
   const categorySlugs = groups.map((g) => g.slug);
+  const catsArr = categorySlugs.map((s) => JSON.stringify(s)).join(", ");
 
   const metaLines = groups
-  .map((g) => {
-    const ko = KO_GROUP_META[g.group];
-    const koTitle = ko?.title ?? g.group; // 한글 없으면 영문으로 대체
-    const koDesc = ko?.description ?? `Unicode group: ${g.group}`;
-
-    // 화면에는 "한글 (영문)" 형태로 같이 표시
-    const title = `${koTitle} (${g.group})`;
-    const description = `${koDesc} (${g.group})`;
-
-    return `  "${g.slug}": { title: ${JSON.stringify(title)}, description: ${JSON.stringify(description)} },`;
-  })
-  .join("\n");
+    .map((g) => {
+      const ko = KO_GROUP_META[g.group];
+      const koTitle = ko?.title ?? g.group;
+      const koDesc = ko?.description ?? `Unicode group: ${g.group}`;
+      const title = `${koTitle} (${g.group})`;
+      const description = `${koDesc} (${g.group})`;
+      return `  ${JSON.stringify(g.slug)}: { title: ${JSON.stringify(
+        title
+      )}, description: ${JSON.stringify(description)} },`;
+    })
+    .join("\n");
 
   const emojiLines = groups
     .map((g) => {
       const arr = g.emojis.map((e) => JSON.stringify(e)).join(", ");
-      return `  "${g.slug}": [${arr}],`;
+      return `  ${JSON.stringify(g.slug)}: [${arr}],`;
     })
     .join("\n");
 
-  const catsArr = categorySlugs.map((s) => JSON.stringify(s)).join(", ");
+  // Build meta map for search
+  const metaObjLines = parsed
+    .map((it) => {
+      const category = slugifyGroupName(it.group);
+      const subgroup = it.subgroup;
+      const enName = it.name;
+
+      const enKeywords = uniq([
+        ...tokenizeEnglish(enName),
+        ...tokenizeEnglish(it.group),
+        ...tokenizeEnglish(subgroup),
+      ]);
+
+      const ko = koMap?.get(it.emoji);
+      const koName = ko?.tts ?? null;
+      const koKeywords = uniq((ko?.keywords ?? []).filter(Boolean));
+
+      // Precomputed search string (lowercased for substring match)
+      const search = [
+        it.emoji,
+        enName,
+        ...enKeywords,
+        koName ?? "",
+        ...koKeywords,
+        it.group,
+        subgroup,
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return `  ${JSON.stringify(it.emoji)}: { name: ${JSON.stringify(
+        enName
+      )}, keywords: ${JSON.stringify(enKeywords)}, koName: ${
+        koName ? JSON.stringify(koName) : "undefined"
+      }, koKeywords: ${
+        koKeywords.length ? JSON.stringify(koKeywords) : "undefined"
+      }, category: ${JSON.stringify(category)}, subgroup: ${JSON.stringify(
+        subgroup
+      )}, search: ${JSON.stringify(search)} },`;
+    })
+    .join("\n");
 
   return `/**
  * AUTO-GENERATED FILE — DO NOT EDIT BY HAND
  * Generated from: ${sourceUrl}
  *
- * Tip:
- * - If you want Korean titles/descriptions, edit CATEGORY_META after generation,
- *   or generate -> then apply a post-process map.
+ * Includes:
+ * - EMOJIS by category (Unicode group)
+ * - EMOJI_META (English name + tokens + optional Korean name/keywords + precomputed search)
  */
 
 export const ALL_CATEGORIES = [${catsArr}] as const;
@@ -236,6 +353,23 @@ export const EMOJIS: Record<EmojiCategory, string[]> = {
 ${emojiLines}
 };
 
+export type EmojiMeta = {
+  name: string;
+  keywords: string[];
+  /** Localized Korean name from CLDR (if available). */
+  koName?: string;
+  /** Localized Korean keywords from CLDR (if available). */
+  koKeywords?: string[];
+  category: EmojiCategory;
+  subgroup: string;
+  /** Precomputed lowercase string for fast substring matching. */
+  search: string;
+};
+
+export const EMOJI_META: Record<string, EmojiMeta> = {
+${metaObjLines}
+};
+
 export function getAllEmojiFlat(): string[] {
   const set = new Set<string>();
   for (const cat of ALL_CATEGORIES) {
@@ -247,22 +381,51 @@ export function getAllEmojiFlat(): string[] {
 }
 
 async function main() {
-  const txt = await fetchText(URL);
-  const parsed = parseEmojiTest(txt);
+  const emojiTxt = INPUT_PATH ? readTextFile(INPUT_PATH) : await fetchText(URL);
+  const parsed = parseEmojiTest(emojiTxt);
   if (parsed.length === 0) {
     throw new Error("Parsed 0 emojis. Check URL/version or parser.");
   }
 
-  const ts = buildTsFile(parsed, URL);
+  let koMap = null;
+  if (INCLUDE_KO) {
+    try {
+      const koXml = CLDR_KO_INPUT ? readTextFile(CLDR_KO_INPUT) : await fetchText(CLDR_KO_URL);
+      const koDerivedXml = CLDR_KO_DERIVED_INPUT
+        ? readTextFile(CLDR_KO_DERIVED_INPUT)
+        : await fetchText(CLDR_KO_DERIVED_URL);
+
+      const base = parseCldrAnnotationsXml(koXml);
+      const derived = parseCldrAnnotationsXml(koDerivedXml);
+
+      // merge derived into base
+      for (const [emoji, v] of derived.entries()) {
+        const cur = base.get(emoji) ?? { tts: null, keywords: [] };
+        if (!cur.tts && v.tts) cur.tts = v.tts;
+        cur.keywords = uniq([...(cur.keywords ?? []), ...(v.keywords ?? [])]);
+        base.set(emoji, cur);
+      }
+      koMap = base;
+    } catch (err) {
+      console.warn(
+        "⚠️  Korean annotations fetch/parse failed. Generating without Korean meta.",
+        err?.message ?? err
+      );
+      koMap = null;
+    }
+  }
+
+  const ts = buildTsFile(parsed, INPUT_PATH ? INPUT_PATH : URL, koMap);
 
   const outAbs = path.resolve(process.cwd(), OUT_PATH);
   fs.mkdirSync(path.dirname(outAbs), { recursive: true });
   fs.writeFileSync(outAbs, ts, "utf8");
 
   console.log(`✅ Generated ${OUT_PATH}`);
-  console.log(`   Source: ${URL}`);
+  console.log(`   Source: ${INPUT_PATH ? INPUT_PATH : URL}`);
   console.log(`   Count: ${parsed.length} (deduped)`);
   console.log(`   Categories: ${new Set(parsed.map((x) => x.group)).size}`);
+  console.log(`   Korean meta: ${koMap ? "enabled" : "disabled"}`);
 }
 
 main().catch((err) => {

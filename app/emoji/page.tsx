@@ -44,6 +44,20 @@ export default function EmojiHubPage() {
 
       <div style={{ marginTop: 14 }}>
         <a
+          href="/emoji/list"
+          style={{
+            display: "inline-block",
+            padding: "10px 12px",
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,0.16)",
+            textDecoration: "none",
+            opacity: 0.9,
+            marginRight: 10,
+          }}
+        >
+          🧾 전체 리스트 보기
+        </a>
+        <a
           href="/emoji/copy"
           style={{
             display: "inline-block",
