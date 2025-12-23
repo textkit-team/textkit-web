@@ -2,9 +2,7 @@
 
 import { useState } from "react";
 
-type Props = {
-  emojis: string[];
-};
+type Props = { emojis: string[] };
 
 export default function EmojiGrid({ emojis }: Props) {
   const [toast, setToast] = useState<string | null>(null);
@@ -29,9 +27,9 @@ export default function EmojiGrid({ emojis }: Props) {
           gap: 10,
         }}
       >
-        {emojis.map((e, idx) => (
+        {emojis.map((e, i) => (
           <button
-            key={idx}
+            key={`${e}-${i}`}
             onClick={() => copy(e)}
             style={{
               height: 44,
@@ -58,6 +56,7 @@ export default function EmojiGrid({ emojis }: Props) {
             borderRadius: 999,
             background: "rgba(0,0,0,0.8)",
             fontSize: 14,
+            zIndex: 50,
           }}
         >
           {toast}

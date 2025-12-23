@@ -1,8 +1,8 @@
 import EmojiPageClient from "./EmojiPageClient";
 
 export const metadata = {
-  title: "Emoji Search & Copy | TextKit",
-  description: "Search and copy emojis fast. Optimized for mobile.",
+  title: "Emoji | TextKit",
+  description: "Search and copy emojis with Korean and English keywords.",
 };
 
 export default function EmojiPage() {
