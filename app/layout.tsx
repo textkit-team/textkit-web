@@ -23,6 +23,21 @@ export const metadata: Metadata = {
   icons: {
     icon: "/favicon.ico",
   },
+  openGraph: {
+    title: "TextKit – Emoji Search & Copy",
+    description: "Search and copy emojis easily.",
+    url: "https://www.textkit.kr",
+    siteName: "TextKit",
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: "TextKit Emoji Search & Copy",
+      },
+    ],
+    type: "website",
+  },
   metadataBase: new URL("https://www.textkit.kr"),
 };
 
