@@ -11,17 +11,17 @@ import {
   type EmojiCategory,
 } from "@/lib/emoji-data";
 
-const CATEGORY_ORDER: EmojiCategory[] = [
-  "smileys-emotion",
-  "people-body",
-  "animals-nature",
-  "food-drink",
+const CATEGORY_ORDER = [
+  "smileys-and-emotion",
+  "people-and-body",
+  "animals-and-nature",
+  "food-and-drink",
   "activities",
-  "travel-places",
+  "travel-and-places",
   "objects",
   "symbols",
   "flags",
-];
+] as const satisfies readonly EmojiCategory[];
 
 export default function EmojiPageClient() {
   const [q, setQ] = useState("");
