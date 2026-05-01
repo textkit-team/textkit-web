@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "럭키데이 개인정보처리방침",
@@ -9,11 +8,7 @@ export const metadata: Metadata = {
 export default function LuckyDayPrivacyPage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-16">
-      <Link href="/luckyday" className="text-sm font-semibold opacity-70 hover:opacity-100">
-        ← 럭키데이
-      </Link>
-
-      <header className="mt-10 rounded-2xl bg-cyan-800 px-6 py-7 text-white shadow-lg">
+      <header className="rounded-2xl bg-cyan-800 px-6 py-7 text-white shadow-lg">
         <h1 className="text-3xl font-extrabold tracking-tight">
           럭키데이 개인정보처리방침
         </h1>

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "럭키데이 이용약관",
@@ -9,11 +8,7 @@ export const metadata: Metadata = {
 export default function LuckyDayTermsPage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-16">
-      <Link href="/luckyday" className="text-sm font-semibold opacity-70 hover:opacity-100">
-        ← 럭키데이
-      </Link>
-
-      <header className="mt-10 rounded-2xl bg-teal-800 px-6 py-7 text-white shadow-lg">
+      <header className="rounded-2xl bg-teal-800 px-6 py-7 text-white shadow-lg">
         <h1 className="text-3xl font-extrabold tracking-tight">럭키데이 이용약관</h1>
         <p className="mt-3 text-sm opacity-90">시행일: 2026년 3월 27일</p>
         <p className="text-sm opacity-90">최종 수정일: 2026년 3월 27일</p>

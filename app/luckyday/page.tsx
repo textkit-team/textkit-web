@@ -26,11 +26,7 @@ export const metadata: Metadata = {
 export default function LuckyDayPage() {
   return (
     <main className="mx-auto max-w-4xl px-6 py-16">
-      <Link href="/" className="text-sm font-semibold opacity-70 hover:opacity-100">
-        ← TextKit
-      </Link>
-
-      <section className="mt-10 grid gap-8 md:grid-cols-[180px_1fr] md:items-center">
+      <section className="grid gap-8 md:grid-cols-[180px_1fr] md:items-center">
         <Image
           src="/luckyday-icon.png"
           width={180}
