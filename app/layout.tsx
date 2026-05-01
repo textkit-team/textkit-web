@@ -16,17 +16,17 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "TextKit – Emoji Search & Copy",
+    default: "TextKit",
     template: "%s | TextKit",
   },
   description:
-    "TextKit is a simple toolkit for text utilities. Search and copy emojis with Korean and English keywords.",
+    "TextKit is a simple toolkit for text utilities and app service information.",
   icons: {
     icon: "/favicon.ico",
   },
   openGraph: {
-    title: "TextKit – Emoji Search & Copy",
-    description: "Search and copy emojis easily.",
+    title: "TextKit",
+    description: "Text utilities and app service information.",
     url: "https://www.textkit.kr",
     siteName: "TextKit",
     images: [
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
         url: "/og.png",
         width: 1200,
         height: 630,
-        alt: "TextKit Emoji Search & Copy",
+        alt: "TextKit",
       },
     ],
     type: "website",
@@ -61,7 +61,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           `}
         </Script>
       </head>
-      <body>{children}</body>
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+        {children}
+      </body>
     </html>
   );
 }
